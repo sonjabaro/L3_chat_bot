@@ -3,6 +3,14 @@ from dotenv import load_dotenv
 import os
 from langchain.schema import AIMessage, HumanMessage
 import gradio as gr
+from transformers import pipeline, AutoTokenizer, TFAutoModelForSeq2SeqLM
+import subprocess
+import torch
+#Google Text to Speech
+from gtts import gTTS
+import tempfile
+from langdetect import detect
+from transformers import MarianMTModel, MarianTokenizer
 
 load_dotenv()
 
@@ -13,7 +21,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Additional imports for loading PDF documents and QA chain.
 from langchain.document_loaders import PyPDFLoader
-from langchain.chains.question_answering import load_qa_chain
+
 
 # Additional imports for loading Wikipedia content and QA chain.
 from langchain_community.document_loaders import WikipediaLoader
@@ -21,14 +29,12 @@ from langchain.chains.question_answering import load_qa_chain
 
 #Setting the Model
 
-# Initialize the model with your OpenAI API key
-load_dotenv()
 
 # Set the model name for our LLMs.
 OPENAI_MODEL = "gpt-3.5-turbo"
 # Store the API key in a variable.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = 'gpt-3.5-turbo'  # We're using GPT 3.5 turbo as we don't really need GPT 4 for this as the info doesn't change that much. It provides what we need at a lower cost.
+
 #Instantiating the llm we'll use and the arguments to pass
 llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY, model_name=OPENAI_MODEL, temperature=0.0)
 
@@ -47,7 +53,6 @@ chain = load_qa_chain(llm)
 
 #Define the function to call the LLM
 def handle_query(user_query):
-    global documents, chain
     if not documents:
         return "Source not loading info; please try again later."
 
@@ -170,3 +175,26 @@ def polly_text_to_speech(text, lang_code):
     except boto3.exceptions.Boto3Error as e:
         print(f"Error accessing Polly: {e}")
     return None  # Return None if there was an error
+
+
+#Define combined function to feed into Gradio app
+def combined_function (audio_filepath, target_lang):
+    
+    #language detection for the original text
+    transcribed_text = transcribe_audio_original(audio_filepath)
+    detected_lang = detect(transcribed_text)
+    
+    # query the diabetes model with the transcibed text
+    response_text = handle_query(transcribed_text)
+    
+    
+    # translate the response text to the target language
+    target_lang_code = language_map[target_lang]
+    translated_response = translate(response_text, target_lang_code)
+    
+    #text to speech for original and translated response 
+    original_speech = polly_text_to_speech(response_text, detected_lang)
+    translated_speech = polly_text_to_speech(translated_response, target_lang_code)
+    
+    
+    return transcribed_text, response_text, translated_response, original_speech, translated_speech, 
