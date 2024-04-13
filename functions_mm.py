@@ -11,6 +11,12 @@ from gtts import gTTS
 import tempfile
 from langdetect import detect
 from transformers import MarianMTModel, MarianTokenizer
+import boto3
+# Additional imports for loading PDF documents and QA chain.
+from langchain_community.document_loaders import PyPDFLoader
+# Additional imports for loading Wikipedia content and QA chain
+from langchain_community.document_loaders import WikipediaLoader
+from langchain.chains.question_answering import load_qa_chain
 
 load_dotenv()
 
@@ -19,13 +25,6 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 # Store the API key in a variable.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Additional imports for loading PDF documents and QA chain.
-from langchain.document_loaders import PyPDFLoader
-
-
-# Additional imports for loading Wikipedia content and QA chain.
-from langchain_community.document_loaders import WikipediaLoader
-from langchain.chains.question_answering import load_qa_chain
 
 #Setting the Model
 
