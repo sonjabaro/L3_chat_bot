@@ -17,6 +17,8 @@ from langchain_community.document_loaders import PyPDFLoader
 # Additional imports for loading Wikipedia content and QA chain
 from langchain_community.document_loaders import WikipediaLoader
 from langchain.chains.question_answering import load_qa_chain
+# Import RegEx for translate function, to split sentences in avoiding token limits
+import re
 
 load_dotenv()
 
