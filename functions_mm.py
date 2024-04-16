@@ -196,4 +196,113 @@ def combined_function (audio_filepath, target_lang):
     translated_speech = polly_text_to_speech(translated_response, target_lang_code)
     
     
-    return transcribed_text, response_text, translated_response, original_speech, translated_speech, 
+    return transcribed_text, response_text, translated_response, original_speech, translated_speech
+
+#########################################################################
+
+def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=default_language):
+    
+    #Determine source of text: audio transctiption or direct text input
+    if audio_filepath and typed_text:
+        return "Please use only one input method at a time", None
+    
+    query_text = None
+    detected_lang_code = None
+    original_speech = None
+    
+    if typed_text:
+        #convert typed text to speech
+        query_text = typed_text
+        detected_lang_code = detect(query_text)
+        original_speech = polly_text_to_speech(query_text, detected_lang_code)
+        return None, original_speech
+    
+    elif audio_filepath:
+        #transcribe audio to text
+        query_text = transcribe_audio_original(audio_filepath)
+        detected_lang_code = detect(query_text)
+        original_speech = polly_text_to_speech(query_text, detected_lang_code)
+        return query_text, original_speech
+    
+    if not query_text:
+        return "Please provide input by typing or speaking.", None
+    
+    #Check if the language is specified. Default to English if not.
+    target_lang_code = language_map.get(target_lang, "en")
+    
+    #Map detected language code to language name
+    detected_lang = [key for key, value in language_map.items() if value == detected_lang_code][0]
+    
+    
+    return query_text, original_speech
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+default_language = "English"
+
+def translate_and_speech(query_text=None, typed_text=None, target_lang=default_language):
+    
+    #Determine source of input: transcribed text from audio filepath or direct text input
+    
+    if query_text and typed_text:
+        return "Translate button will translate the transcribed text box or the text input box, but not both concurrently. Please ensure only one box is populated.", None
+    elif typed_text:
+        to_translate_text = typed_text
+    elif query_text: 
+        to_translate_text = query_text
+    else: "Please provide input by typing ", None, None, None
+        
+    #Detect language of input text
+    detected_lang_code = detect(to_translate_text)
+    detected_lang = [key for key, value in language_map.items() if value == detected_lang_code][0]
+    
+    #Check if the language is specified. Default to English if not.
+    target_lang_code = language_map.get(target_lang, "en")
+    
+    #Process text: translate 
+    #Check if the detected language and target language are the same
+    if detected_lang == target_lang:
+        translated_text = to_translate_text
+    else:
+        translated_text = translate(to_translate_text, target_lang_code)
+    
+    #convert to speech
+    translated_speech = polly_text_to_speech(translated_text, target_lang_code)
+    
+    return  translated_text, translated_speech
