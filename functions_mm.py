@@ -114,22 +114,22 @@ def handle_query(user_query):
 #Setup cache mechanism to initialize translation model at module level to improve app speed.
 
 #Define global variables for tokenizer and model
-whisper_model_cache = {}
+helsinki_model_cache = {}
 
-def get_whisper_model_and_tokenizer(src_lang, target_lang):
-    whisper_model_name =f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}"
-    if whisper_model_name not in whisper_model_cache:
-        tokenizer = MarianTokenizer.from_pretrained(whisper_model_name)
-        model = MarianMTModel.from_pretrained(whisper_model_name)
-        whisper_model_cache[whisper_model_name] = (tokenizer, model)
-    return whisper_model_cache[whisper_model_name]
+def get_helsinki_model_and_tokenizer(src_lang, target_lang):
+    helsinki_model_name =f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}"
+    if helsinki_model_name not in helsinki_model_cache:
+        tokenizer = MarianTokenizer.from_pretrained(helsinki_model_name)
+        model = MarianMTModel.from_pretrained(helsinki_model_name)
+        helsinki_model_cache[helsinki_model_name] = (tokenizer, model)
+    return helsinki_model_cache[helsinki_model_name]
 
 #Define function to transcribe audio to text and then translate it into the specified language
 def translate(transcribed_text, target_lang="es"):
     try:
         #Define the model and tokenizer
         src_lang = detect(transcribed_text)
-        tokenizer, model = get_whisper_model_and_tokenizer(src_lang, target_lang)
+        tokenizer, model = get_helsinki_model_and_tokenizer(src_lang, target_lang)
         max_length = tokenizer.model_max_length
 
         # Split text based on sentence endings to better manage translation segments
@@ -152,10 +152,19 @@ def translate(transcribed_text, target_lang="es"):
         return "Error in transcription or translation"
         
 
+#Initialize Whisper model at the module level to be used across different calls
+transcription_pipeline = None
+
+def initialize_transcription_model():
+    global transcription_pipeline
+    if transcription_pipeline is None:
+        transcription_pipeline = pipeline("automatic-speech-recognition", model="openai/whisper-large")
+
 #Define function to transcribes audio to text using Whisper in the original language it was spoken
 def transcribe_audio_original(audio_filepath):
     try:
-        transcription_pipeline = pipeline("automatic-speech-recognition", model="openai/whisper-large")
+        if transcription_pipeline is None:
+            initialize_transcription_model()
         transcription_result = transcription_pipeline(audio_filepath)
         transcribed_text = transcription_result['text']
         return transcribed_text
@@ -173,19 +182,18 @@ def text_to_speech(text):
     tts.save(temp_file.name)
     return temp_file.name
 
-# Define text-to-speech function using Amazon Polly
-# Include voice map to specify which language requires which
-# voice IDs
 
+
+#Initialize Polly client at module level
+polly_client = boto3.client('polly')
+
+# Define text-to-speech function using Amazon Polly
 def polly_text_to_speech(text, lang_code):
     
     try:
     
         #get the appropriate voice ID from the mapping
         voice_id = voice_map[lang_code]
-        
-        #initialize boto3 client for polly
-        polly_client = boto3.client('polly')
         
         #request speech synthesis
         response = polly_client.synthesize_speech(
