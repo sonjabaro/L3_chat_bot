@@ -90,21 +90,27 @@ def translate(transcribed_text, target_lang="es"):
         model_name =f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}"
         tokenizer = MarianTokenizer.from_pretrained(model_name)
         model = MarianMTModel.from_pretrained(model_name)
-        
-        #tokenize the text
-        encoded_text = tokenizer(transcribed_text, return_tensors="pt", padding=True)
-        
-        #generate translation using the model
-        translated_tokens = model.generate(**encoded_text)
-        
-        #decode the translated tokens
-        translated_text = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-        
-        return translated_text
-        
+        max_length = tokenizer.model_max_length
+
+        # Split text based on sentence endings to better manage translation segments
+        sentences = re.split(r'(?<=[.!?]) +', transcribed_text)
+        full_translation = ""
+
+        # Process each sentence individually
+        for sentence in sentences:
+            tokens = tokenizer.encode(sentence, return_tensors="pt", truncation=True, max_length=max_length)
+            if tokens.size(1) > max_length:
+                continue  # Skip sentences that are too long even after truncation (optional handling)
+            translated_tokens = model.generate(tokens)
+            segment_translation = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+            full_translation += segment_translation + " "
+
+        return full_translation.strip()
+
     except Exception as e:
         print(f"An error occurred: {e}")
         return "Error in transcription or translation"
+        
 
 
 # Define function to translate text to speech for output
@@ -146,6 +152,14 @@ language_map = {
     
 }
 
+# list of languages and their codes for dropdown
+languages = gr.Dropdown(
+    label="Click in the middle of the dropdown bar to select translation language", 
+    choices=list(language_map.keys()))
+
+#Define default language
+default_language = "English"
+
 # Define text-to-speech function using Amazon Polly
 # Include voice map to specify which language requires which
 # voice IDs
@@ -178,30 +192,48 @@ def polly_text_to_speech(text, lang_code):
     return None  # Return None if there was an error
 
 
-#Define combined function to feed into Gradio app
-def combined_function (audio_filepath, target_lang):
+
+#Define function to submit query to Wikipedia to feed into Gradio app
+def submit_question (audio_filepath=None, typed_text=None, target_lang=default_language):
     
-    #language detection for the original text
-    transcribed_text = transcribe_audio_original(audio_filepath)
-    detected_lang = detect(transcribed_text)
+    #Determine source of text: audio transctiption or direct text input
+    # if audio_filepath and typed_text:
+    #     return "Please use only one input method at a time", None
     
-    # query the diabetes model with the transcibed text
-    response_text = handle_query(transcribed_text)
+    if not audio_filepath and not typed_text:
+        return "Please provide input by typing or speaking", None
+    
+    response_speech = None
+    response_text = None
+    
+    if typed_text:
+        #submit through handle_query function
+        # query_text = typed_text
+        detected_lang_code = detect(typed_text)
+        response_text = handle_query(typed_text)
+        response_speech = polly_text_to_speech(response_text, detected_lang_code)
+        
+    
+    elif audio_filepath:
+        #transcribe audio to text in background
+        query_text = transcribe_audio_original(audio_filepath)
+        detected_lang_code = detect(query_text)
+        response_text = handle_query(query_text)
+        response_speech = polly_text_to_speech(response_text, detected_lang_code)
+        
+    
+    if not response_speech:
+        response_speech = "No audio available"
     
     
-    # translate the response text to the target language
-    target_lang_code = language_map[target_lang]
-    translated_response = translate(response_text, target_lang_code)
-    
-    #text to speech for original and translated response 
-    original_speech = polly_text_to_speech(response_text, detected_lang)
-    translated_speech = polly_text_to_speech(translated_response, target_lang_code)
+    #Map detected language code to language name
+    # detected_lang = [key for key, value in language_map.items() if value == detected_lang_code][0]
     
     
-    return transcribed_text, response_text, translated_response, original_speech, translated_speech
+    return response_text, response_speech
 
 #########################################################################
-default_language = "English"
+
 
 def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=default_language):
     
@@ -240,22 +272,12 @@ def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=defa
     return query_text, original_speech
 
 
-
-
-def translate_and_speech(query_text=None, typed_text=None, target_lang=default_language):
+#Define function to translate query into target language in text and audio
+def translate_and_speech(response_text=None, target_lang=default_language):
     
-    #Determine source of input: transcribed text from audio filepath or direct text input
-    
-    if query_text and typed_text:
-        return "Translate button will translate the transcribed text box or the text input box, but not both concurrently. Please ensure only one box is populated.", None
-    elif typed_text:
-        to_translate_text = typed_text
-    elif query_text: 
-        to_translate_text = query_text
-    else: "Please provide input by typing ", None, None, None
         
     #Detect language of input text
-    detected_lang_code = detect(to_translate_text)
+    detected_lang_code = detect(response_text)
     detected_lang = [key for key, value in language_map.items() if value == detected_lang_code][0]
     
     #Check if the language is specified. Default to English if not.
@@ -264,11 +286,16 @@ def translate_and_speech(query_text=None, typed_text=None, target_lang=default_l
     #Process text: translate 
     #Check if the detected language and target language are the same
     if detected_lang == target_lang:
-        translated_text = to_translate_text
+        translated_response = response_text
     else:
-        translated_text = translate(to_translate_text, target_lang_code)
+        translated_response = translate(response_text, target_lang_code)
     
     #convert to speech
-    translated_speech = polly_text_to_speech(translated_text, target_lang_code)
+    translated_speech = polly_text_to_speech(translated_response, target_lang_code)
     
-    return  translated_text, translated_speech
+    return  translated_response, translated_speech
+
+
+# Function to clear out all inputs
+def clear_inputs():
+    return None, None, None, None, None, None
