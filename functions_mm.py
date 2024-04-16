@@ -68,9 +68,7 @@ languages = gr.Dropdown(
 #Define default language
 default_language = "English"
 
-#############################################################################################################
-
-#Setting the Chatbot Model
+#Setting the Chatbot Model #################################################################################
 
 # Set the model name for our LLMs.
 OPENAI_MODEL = "gpt-3.5-turbo"
@@ -111,6 +109,48 @@ def handle_query(user_query):
     except Exception as e:
         return "An error occurred while searching for the answer: " + str(e)
     
+#Language models and functions ############################################################################
+
+#Setup cache mechanism to initialize translation model at module level to improve app speed.
+
+#Define global variables for tokenizer and model
+whisper_model_cache = {}
+
+def get_whisper_model_and_tokenizer(src_lang, target_lang):
+    whisper_model_name =f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}"
+    if whisper_model_name not in whisper_model_cache:
+        tokenizer = MarianTokenizer.from_pretrained(whisper_model_name)
+        model = MarianMTModel.from_pretrained(whisper_model_name)
+        whisper_model_cache[whisper_model_name] = (tokenizer, model)
+    return whisper_model_cache[whisper_model_name]
+
+#Define function to transcribe audio to text and then translate it into the specified language
+def translate(transcribed_text, target_lang="es"):
+    try:
+        #Define the model and tokenizer
+        src_lang = detect(transcribed_text)
+        tokenizer, model = get_whisper_model_and_tokenizer(src_lang, target_lang)
+        max_length = tokenizer.model_max_length
+
+        # Split text based on sentence endings to better manage translation segments
+        sentences = re.split(r'(?<=[.!?]) +', transcribed_text)
+        full_translation = ""
+
+        # Process each sentence individually
+        for sentence in sentences:
+            tokens = tokenizer.encode(sentence, return_tensors="pt", truncation=True, max_length=max_length)
+            if tokens.size(1) > max_length:
+                continue  # optionally handle long sentences longer than max # tokens for model
+            translated_tokens = model.generate(tokens)
+            segment_translation = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
+            full_translation += segment_translation + " "
+
+        return full_translation.strip()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return "Error in transcription or translation"
+        
 
 #Define function to transcribes audio to text using Whisper in the original language it was spoken
 def transcribe_audio_original(audio_filepath):
@@ -122,38 +162,6 @@ def transcribe_audio_original(audio_filepath):
     except Exception as e:
         print(f"an error occured: {e}")
         return "Error in transcription"
-    
-
-
-#Define function to transcribe audio to text and then translate it into the specified language
-def translate(transcribed_text, target_lang="es"):
-    try:
-        #Define the model and tokenizer
-        src_lang = detect(transcribed_text)
-        model_name =f"Helsinki-NLP/opus-mt-{src_lang}-{target_lang}"
-        tokenizer = MarianTokenizer.from_pretrained(model_name)
-        model = MarianMTModel.from_pretrained(model_name)
-        max_length = tokenizer.model_max_length
-
-        # Split text based on sentence endings to better manage translation segments
-        sentences = re.split(r'(?<=[.!?]) +', transcribed_text)
-        full_translation = ""
-
-        # Process each sentence individually
-        for sentence in sentences:
-            tokens = tokenizer.encode(sentence, return_tensors="pt", truncation=True, max_length=max_length)
-            if tokens.size(1) > max_length:
-                continue  # Skip sentences that are too long even after truncation (optional handling)
-            translated_tokens = model.generate(tokens)
-            segment_translation = tokenizer.decode(translated_tokens[0], skip_special_tokens=True)
-            full_translation += segment_translation + " "
-
-        return full_translation.strip()
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return "Error in transcription or translation"
-        
 
 
 # Define function to translate text to speech for output
