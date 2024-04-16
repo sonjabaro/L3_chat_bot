@@ -199,6 +199,7 @@ def combined_function (audio_filepath, target_lang):
     return transcribed_text, response_text, translated_response, original_speech, translated_speech
 
 #########################################################################
+default_language = "English"
 
 def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=default_language):
     
@@ -238,43 +239,6 @@ def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=defa
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-default_language = "English"
 
 def translate_and_speech(query_text=None, typed_text=None, target_lang=default_language):
     
