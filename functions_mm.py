@@ -28,8 +28,7 @@ OPENAI_MODEL = "gpt-3.5-turbo"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
-#Setting the Model
-
+#Setting the Chatbot Model
 
 # Set the model name for our LLMs.
 OPENAI_MODEL = "gpt-3.5-turbo"
@@ -68,6 +67,46 @@ def handle_query(user_query):
     except Exception as e:
         return "An error occurred while searching for the answer: " + str(e)
     
+#Define language variables ###################################################################################
+#Define voice map
+voice_map = {
+    "ar": "Hala",
+    "en": "Gregory",
+    "es": "Mia",
+    "fr": "Liam",
+    "de": "Vicki",
+    "it": "Bianca",
+    "zh": "Hiujin",
+    "hi": "Kajal",
+    "jap": "Tomoko",
+    "trk": "Burcu"
+    
+    }
+
+#Define language map from full names to ISO codes
+language_map = {
+    "Arabic (Gulf)": "ar",
+    "Chinese (Cantonese)": "zh",
+    "English": "en",
+    "French": "fr",
+    "German": "de",
+    "Hindi": "hi",
+    "Italian": "it",
+    "Japanese": "jap",
+    "Spanish": "es",
+    "Turkish": "trk"
+    
+}
+
+# list of languages and their codes for dropdown
+languages = gr.Dropdown(
+    label="Click in the middle of the dropdown bar to select translation language", 
+    choices=list(language_map.keys()))
+
+#Define default language
+default_language = "English"
+
+#############################################################################################################
 
 #Define function to transcribes audio to text using Whisper in the original language it was spoken
 def transcribe_audio_original(audio_filepath):
@@ -121,44 +160,6 @@ def text_to_speech(text):
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
     tts.save(temp_file.name)
     return temp_file.name
-
-#Define voice map
-voice_map = {
-    "ar": "Hala",
-    "en": "Gregory",
-    "es": "Mia",
-    "fr": "Liam",
-    "de": "Vicki",
-    "it": "Bianca",
-    "zh": "Hiujin",
-    "hi": "Kajal",
-    "jap": "Tomoko",
-    "trk": "Burcu"
-    
-    }
-
-#Define language map from full names to ISO codes
-language_map = {
-    "Arabic (Gulf)": "ar",
-    "Chinese (Cantonese)": "zh",
-    "English": "en",
-    "French": "fr",
-    "German": "de",
-    "Hindi": "hi",
-    "Italian": "it",
-    "Japanese": "jap",
-    "Spanish": "es",
-    "Turkish": "trk"
-    
-}
-
-# list of languages and their codes for dropdown
-languages = gr.Dropdown(
-    label="Click in the middle of the dropdown bar to select translation language", 
-    choices=list(language_map.keys()))
-
-#Define default language
-default_language = "English"
 
 # Define text-to-speech function using Amazon Polly
 # Include voice map to specify which language requires which
@@ -232,9 +233,7 @@ def submit_question (audio_filepath=None, typed_text=None, target_lang=default_l
     
     return response_text, response_speech
 
-#########################################################################
-
-
+#Define function to transcribe audio and provide output in text and speech
 def transcribe_and_speech(audio_filepath=None, typed_text=None, target_lang=default_language):
     
     #Determine source of text: audio transctiption or direct text input
